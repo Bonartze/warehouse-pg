@@ -381,6 +381,22 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 		catDirectArgs = classForm->aggnumdirectargs;
 		ReleaseSysCache(tup);
 
+		/*
+		 * The argument-count limit for aggregates is one less than for other
+		 * kinds of functions (cf. AggregateCreate).  Now that we know it's an
+		 * aggregate, apply the stricter limit.  We need an explicit check
+		 * because hypothetical-set aggregates don't have a fixed number of
+		 * arguments, so having matched the pg_proc entry proves nothing.
+		 */
+		if (nargs > FUNC_MAX_ARGS - 1)
+			ereport(ERROR,
+					(errcode(ERRCODE_TOO_MANY_ARGUMENTS),
+					 errmsg_plural("aggregates cannot have more than %d argument",
+								   "aggregates cannot have more than %d arguments",
+								   FUNC_MAX_ARGS - 1,
+								   FUNC_MAX_ARGS - 1),
+					 parser_errposition(pstate, location)));
+
 		/* Now check various disallowed cases. */
 		if (AGGKIND_IS_ORDERED_SET(aggkind))
 		{

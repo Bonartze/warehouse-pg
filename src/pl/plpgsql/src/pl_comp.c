@@ -398,13 +398,6 @@ do_compile(FunctionCallInfo fcinfo,
 			numargs = get_func_arg_info(procTup,
 										&argtypes, &argnames, &argmodes);
 
-			/*
-			 * Protect function->fn_argvarnos[], sized FUNC_MAX_ARGS, against
-			 * a catalog entry with more arguments than we can handle.
-			 */
-			if (numargs > FUNC_MAX_ARGS)
-				elog(ERROR, "too many function arguments");
-
 			plpgsql_resolve_polymorphic_argtypes(numargs, argtypes, argmodes,
 												 fcinfo->flinfo->fn_expr,
 												 forValidator,
@@ -2493,11 +2486,19 @@ compute_function_hashkey(FunctionCallInfo fcinfo,
 	if (procStruct->pronargs > 0)
 	{
 		/*
-		 * Protect hashkey->argtypes[], sized FUNC_MAX_ARGS, against a
-		 * catalog entry with more arguments than we can handle.
+		 * Protect against overrun of fixed-size hashkey->argtypes array. This
+		 * also protects later code in places such as PL/pgSQL. Ordinarily the
+		 * parser would have checked this long since, but it's possible that
+		 * we are looking at a pg_proc entry that was made by a server
+		 * executable with a different value of FUNC_MAX_ARGS.
 		 */
 		if (procStruct->pronargs > FUNC_MAX_ARGS)
-			elog(ERROR, "too many function arguments");
+			ereport(ERROR,
+					(errcode(ERRCODE_TOO_MANY_ARGUMENTS),
+					 errmsg_plural("cannot pass more than %d argument to a function",
+								   "cannot pass more than %d arguments to a function",
+								   FUNC_MAX_ARGS,
+								   FUNC_MAX_ARGS)));
 
 		/* get the argument types */
 		memcpy(hashkey->argtypes, procStruct->proargtypes.values,
