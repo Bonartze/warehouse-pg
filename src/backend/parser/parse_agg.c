@@ -1927,7 +1927,16 @@ get_aggregate_argtypes(Aggref *aggref, Oid *inputTypes)
 	int			numArguments = 0;
 	ListCell   *lc;
 
-	Assert(list_length(aggref->aggargtypes) <= FUNC_MAX_ARGS);
+	/*
+	 * Protect callers' inputTypes[] arrays, which are sized FUNC_MAX_ARGS,
+	 * against an Aggref with more arguments than we can handle.  This can't
+	 * happen from a normally-parsed query, but could happen with a
+	 * corrupted catalog or a plan built by a server with a larger
+	 * FUNC_MAX_ARGS.  Use a real check rather than just Assert(), since
+	 * Assert() is compiled out of production builds.
+	 */
+	if (list_length(aggref->aggargtypes) > FUNC_MAX_ARGS)
+		elog(ERROR, "too many function arguments");
 
 	foreach(lc, aggref->aggargtypes)
 	{

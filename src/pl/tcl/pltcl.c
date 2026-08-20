@@ -1500,6 +1500,14 @@ compile_pltcl_function(Oid fn_oid, Oid tgreloid,
 		prodesc->fn_xmin = HeapTupleHeaderGetRawXmin(procTup->t_data);
 		prodesc->fn_tid = procTup->t_self;
 		prodesc->nargs = procStruct->pronargs;
+
+		/*
+		 * Protect proc_internal_args[], which is sized 33 * FUNC_MAX_ARGS,
+		 * against a catalog entry with more arguments than we can handle.
+		 */
+		if (prodesc->nargs < 0 || prodesc->nargs > FUNC_MAX_ARGS)
+			elog(ERROR, "too many function arguments");
+
 		prodesc->arg_out_func = palloc0_array(FmgrInfo, prodesc->nargs);
 		prodesc->arg_is_rowtype = palloc0_array(bool, prodesc->nargs);
 		MemoryContextSwitchTo(oldcontext);

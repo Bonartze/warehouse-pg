@@ -3007,6 +3007,15 @@ initialize_peragg(WindowAggState *winstate, WindowFunc *wfunc,
 
 	numArguments = list_length(wfunc->args);
 
+	/*
+	 * Protect inputTypes[], sized FUNC_MAX_ARGS, against a WindowFunc with
+	 * more arguments than we can handle (shouldn't happen from a normally
+	 * parsed query, but could via a plan from a server with a larger
+	 * FUNC_MAX_ARGS, or a corrupted catalog).
+	 */
+	if (numArguments > FUNC_MAX_ARGS)
+		elog(ERROR, "too many function arguments");
+
 	i = 0;
 	foreach(lc, wfunc->args)
 	{

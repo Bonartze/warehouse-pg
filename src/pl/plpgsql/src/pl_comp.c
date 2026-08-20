@@ -398,6 +398,13 @@ do_compile(FunctionCallInfo fcinfo,
 			numargs = get_func_arg_info(procTup,
 										&argtypes, &argnames, &argmodes);
 
+			/*
+			 * Protect function->fn_argvarnos[], sized FUNC_MAX_ARGS, against
+			 * a catalog entry with more arguments than we can handle.
+			 */
+			if (numargs > FUNC_MAX_ARGS)
+				elog(ERROR, "too many function arguments");
+
 			plpgsql_resolve_polymorphic_argtypes(numargs, argtypes, argmodes,
 												 fcinfo->flinfo->fn_expr,
 												 forValidator,
@@ -2485,6 +2492,13 @@ compute_function_hashkey(FunctionCallInfo fcinfo,
 
 	if (procStruct->pronargs > 0)
 	{
+		/*
+		 * Protect hashkey->argtypes[], sized FUNC_MAX_ARGS, against a
+		 * catalog entry with more arguments than we can handle.
+		 */
+		if (procStruct->pronargs > FUNC_MAX_ARGS)
+			elog(ERROR, "too many function arguments");
+
 		/* get the argument types */
 		memcpy(hashkey->argtypes, procStruct->proargtypes.values,
 			   procStruct->pronargs * sizeof(Oid));

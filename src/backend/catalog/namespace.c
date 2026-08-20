@@ -1339,6 +1339,14 @@ MatchNamedCall(HeapTuple proctup, int nargs, List *argnames,
 	Assert(numposargs >= 0);
 	Assert(nargs <= pronargs);
 
+	/*
+	 * Protect ourselves against catalog entries with more arguments than we
+	 * can handle (e.g. from a server built with a larger FUNC_MAX_ARGS, or
+	 * corrupt catalog contents); arggiven[] below is sized FUNC_MAX_ARGS.
+	 */
+	if (pronargs < 0 || pronargs > FUNC_MAX_ARGS)
+		elog(ERROR, "too many function arguments");
+
 	/* Ignore this function if its proargnames is null */
 	(void) SysCacheGetAttr(PROCOID, proctup, Anum_pg_proc_proargnames,
 						   &isnull);
